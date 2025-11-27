@@ -2,7 +2,7 @@ import os
 import shutil
 import matplotlib.pyplot as plt
 import pandas as pd
-
+from typing import Tuple
 import torch
 from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import ImageFolder
@@ -13,31 +13,46 @@ from lightning.pytorch.loggers import CSVLogger
 
 from model_brain import BrainTumorConvNet, BrainTumorDeepConvNet
 
+class CleanImageFolder(ImageFolder):
+    def find_classes(self, directory):
+        classes, class_to_idx = super().find_classes(directory)
+        if ".ipynb_checkpoints" in classes:
+            classes.remove(".ipynb_checkpoints")
+            class_to_idx = {c: i for i, c in enumerate(classes)}
+        return classes, class_to_idx
 
 # 1. Paths and transforms
-data_dir = "Brain_tumor_images"  
+data_dir = "data/Brain_MRI_Images/Train"  
+val_dir = "data/Brain_MRI_Images/Validation"
 
 transform = T.Compose([
     T.Resize((128, 128)),
     T.ToTensor(),        # keeps 3 channels (RGB)
     # !!!!!!KEVIN we can add normalization if you want:
-    # T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
-# 2. Dataset & split (70% train, 15% val, 15% test)
-full_dataset = ImageFolder(root=data_dir, transform=transform)
-num_classes = len(full_dataset.classes)
-print("Classes:", full_dataset.classes, "| num_classes =", num_classes)
+# 2. Load train and validation datasets separately
+train_dataset = CleanImageFolder(root=data_dir, transform=transform)
+val_dataset = CleanImageFolder(root=val_dir, transform=transform)
 
-train_size = int(0.7 * len(full_dataset))
-val_size   = int(0.15 * len(full_dataset))
-test_size  = len(full_dataset) - train_size - val_size
+num_classes = len(train_dataset.classes)
+print("Classes:", train_dataset.classes, "| num_classes =", num_classes)
 
-train_dataset, val_dataset, test_dataset = random_split(
-    full_dataset,
-    [train_size, val_size, test_size],
+# Split training data for test set (85% train, 15% test)
+train_size = int(0.85 * len(train_dataset))
+test_size = len(train_dataset) - train_size
+
+train_dataset, test_dataset = random_split(
+    train_dataset,
+    [train_size, test_size],
     generator=torch.Generator().manual_seed(0)
 )
+# `random_split` is a function from PyTorch that is used to split a
+# dataset into random train and test subsets. It takes the dataset to be
+# split, along with a list of sizes for each subset. The function then
+# returns two new datasets, one for training and one for testing, with
+# the data randomly distributed according to the specified sizes.
 
 batch_size = 32
 

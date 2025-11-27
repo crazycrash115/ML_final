@@ -2,7 +2,7 @@ from lightning.pytorch import LightningModule
 from torch import nn, Tensor
 import torch
 import torchmetrics
-
+from typing import Tuple
 
 class BaseModel(LightningModule):
     def __init__(self, num_classes: int):
@@ -54,6 +54,7 @@ class BrainTumorConvNet(BaseModel):
     def build_model(self) -> nn.Module:
         return nn.Sequential(
             nn.Conv2d(3, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.MaxPool2d(2),      # 16 x 64 x 64
 
