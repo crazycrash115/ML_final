@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroScan AI - Tumor Detection</title>
+    <title>NeuroScan AI - Batch Analysis</title>
     <style>
         body { 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f0f2f5; 
             text-align: center; 
-            padding: 50px; 
+            padding: 40px; 
             color: #333;
         }
         .container { 
             background: white; 
-            max-width: 800px; 
+            max-width: 1200px;
             margin: 0 auto; 
             padding: 40px; 
             border-radius: 15px; 
@@ -27,7 +27,7 @@
         .upload-box { 
             border: 3px dashed #3498db; 
             background-color: #f8fbfe;
-            padding: 50px; 
+            padding: 40px; 
             border-radius: 12px; 
             cursor: pointer; 
             margin-bottom: 30px; 
@@ -56,35 +56,70 @@
             cursor: pointer;
         }
 
-        /* Results Area */
-        #result-section { display: none; margin-top: 30px; border-top: 1px solid #eee; padding-top: 30px; }
+        /* Results Grid */
+        #result-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 20px; 
+            margin-top: 30px; 
+        }
         
-        /* Single Image Card Style */
+        /* Individual Result Card - Wider to fit 2 images */
         .img-card { 
             background: #fff; 
-            padding: 20px; 
+            padding: 15px; 
             border-radius: 12px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
             text-align: center;
-            display: inline-block; /* Centers the card */
-            margin-top: 20px;
+            width: 360px; /* Increased width */
+            border: 1px solid #eee;
+            transition: transform 0.2s;
         }
-        .img-card h4 { margin-top: 0; color: #555; }
+        .img-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
         
+        .img-card h4 { 
+            margin: 10px 0 5px 0; 
+            color: #555; 
+            font-size: 0.9em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Image Container for Side-by-Side */
+        .images-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .img-wrapper {
+            flex: 1;
+        }
+        .img-wrapper span {
+            display: block;
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
         img { 
-            width: 300px;  /* Slightly larger since it's the only image */
-            height: 300px; 
+            width: 100%; 
+            height: 160px; /* Smaller height for grid */
             object-fit: cover; 
             border-radius: 8px; 
             border: 1px solid #ddd;
             display: block;
-            margin: 0 auto;
         } 
         
         /* Labels */
-        .label-danger { color: #e74c3c; font-weight: 800; font-size: 2em; letter-spacing: 1px;}
-        .label-safe { color: #27ae60; font-weight: 800; font-size: 2em; letter-spacing: 1px;}
-        .confidence { font-size: 1.2em; color: #555; font-weight: 500;}
+        .label-danger { color: #e74c3c; font-weight: 800; font-size: 1.2em; margin: 10px 0 5px 0;}
+        .label-safe { color: #27ae60; font-weight: 800; font-size: 1.2em; margin: 10px 0 5px 0;}
+        .confidence { font-size: 0.9em; color: #7f8c8d; font-weight: 500;}
         
         /* Buttons */
         button { 
@@ -113,106 +148,95 @@
             display: none;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* File Count Badge */
+        .badge {
+            background-color: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-left: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🧠 NeuroScan AI</h1>
-    <p>Upload a brain MRI scan to detect potential anomalies using Deep Learning.</p>
+    <h1>NeuroScan AI</h1>
+    <p>Batch Processing Mode: Upload multiple MRI scans at once.</p>
 
     <!-- Upload Form -->
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
         <span class="upload-icon">📂</span>
-        <strong>Click to Upload MRI Scan</strong>
-        <div style="font-size: 0.9em; margin-top: 5px; color: #999;">Supports JPG, PNG</div>
-        <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImage(event)">
+        <strong>Click to Upload Scans</strong>
+        <div style="font-size: 0.9em; margin-top: 5px; color: #999;">Select multiple files (JPG, PNG)</div>
+        <input type="file" id="fileInput" hidden multiple accept="image/*" onchange="handleFileSelect(event)">
     </div>
 
-    <!-- Preview -->
-    <div id="preview-section" style="display:none;">
-        <h3>Selected Scan</h3>
-        <img id="preview-img" src="" alt="Preview">
+    <!-- Controls Area -->
+    <div id="control-section" style="display:none;">
+        <div style="margin-bottom: 20px;">
+            <span style="font-size: 1.2em;">Selected Files:</span>
+            <span id="file-count" class="badge" style="display:inline-block;">0</span>
+        </div>
         
-        <!-- Model Selection Controls -->
         <div class="controls">
             <select id="model-select">
-                <option value="deep">🧠 Deep ConvNet (Recommended)</option>
-                <option value="baseline">📉 Baseline ConvNet (Standard)</option>
+                <option value="deep">Deep ConvNet (Recommended)</option>
+                <option value="baseline">Baseline ConvNet (Standard)</option>
             </select>
-            <button id="analyze-btn" onclick="analyzeScan()">🔍 Run Analysis</button>
+            <button id="analyze-btn" onclick="analyzeBatch()">Analyze Batch</button>
         </div>
     </div>
 
     <!-- Loading -->
     <div id="loader" class="loader"></div>
-    <p id="loading-text" style="display:none;">Analyzing neural patterns...</p>
+    <p id="loading-text" style="display:none;">Processing batch... please wait.</p>
 
-    <!-- Results -->
-    <div id="result-section">
-        <h2 id="prediction-text"></h2>
-        <p class="confidence">AI Confidence: <span id="confidence-text"></span></p>
-        
-        <!-- Single Image Display -->
-        <div class="img-card">
-            <h4>Analysis Result</h4>
-            
-            <div style="position: relative; width: 300px; height: 300px; margin: 0 auto;">
-                <img id="res-image" src="" onerror="onImgError(this)">
-            </div>
-
-            <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
-                Red areas indicate high AI attention
-            </div>
-        </div>
-        
-        <br><br>
-        <button onclick="location.reload()" style="background-color: #7f8c8d;">Analyze New Image</button>
+    <!-- Results Grid -->
+    <div id="result-grid"></div>
+    
+    <div id="reset-btn-container" style="display:none; margin-top:40px;">
+        <button onclick="location.reload()" style="background-color: #7f8c8d;">Start New Batch</button>
     </div>
 </div>
 
 <script>
-    let selectedFile = null;
+    let selectedFiles = [];
     const API_URL = "http://127.0.0.1:8000/predict";
 
-    // If image fails, try to revert to original, or show error
-    function onImgError(img) {
-        // If the heatmap fails to load, fallback to the original selected file
-        if (selectedFile) {
-            img.src = URL.createObjectURL(selectedFile);
-            img.onerror = null; // Prevent infinite loop if original also fails
+    function handleFileSelect(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            selectedFiles = files;
+            document.getElementById('file-count').innerText = files.length + " scans";
+            document.getElementById('control-section').style.display = 'block';
+            document.getElementById('result-grid').innerHTML = ""; // Clear previous
         }
     }
 
-    function previewImage(event) {
-        const file = event.target.files[0];
-        if (file) {
-            selectedFile = file;
-            const src = URL.createObjectURL(file);
-            document.getElementById('preview-img').src = src;
-            document.getElementById('preview-section').style.display = 'block';
-            document.getElementById('result-section').style.display = 'none';
-        }
-    }
+    async function analyzeBatch() {
+        if (selectedFiles.length === 0) return;
 
-    async function analyzeScan() {
-        if (!selectedFile) return;
-
-        // UI Reset
+        // UI Updates
         document.getElementById('analyze-btn').disabled = true;
         document.getElementById('loader').style.display = 'block';
         document.getElementById('loading-text').style.display = 'block';
-        document.getElementById('result-section').style.display = 'none';
+        document.getElementById('result-grid').innerHTML = ""; // Clear grid
 
         // Prepare Data
         const formData = new FormData();
-        formData.append("file", selectedFile);
+        
+        for (let i = 0; i < selectedFiles.length; i++) {
+            formData.append("files", selectedFiles[i]);
+        }
         
         const modelType = document.getElementById("model-select").value;
         formData.append("model_name", modelType);
 
         try {
-            // Call Backend
             const response = await fetch(API_URL, {
                 method: "POST",
                 body: formData
@@ -223,33 +247,8 @@
                 throw new Error(`Server Error: ${errText}`);
             }
             
-            const data = await response.json();
-
-            // Display Results
-            const labelElem = document.getElementById('prediction-text');
-            labelElem.innerText = data.label;
-            
-            if (data.label.includes("TUMOR")) {
-                labelElem.className = "label-danger";
-                labelElem.innerText = "⚠️ " + data.label;
-            } else {
-                labelElem.className = "label-safe";
-                labelElem.innerText = "✅ " + data.label;
-            }
-            
-            document.getElementById('confidence-text').innerText = data.confidence;
-            
-            // Logic: Show Heatmap if available, otherwise show Original
-            const resultImg = document.getElementById('res-image');
-            
-            if (data.heatmap_image) {
-                resultImg.src = "data:image/jpeg;base64," + data.heatmap_image;
-            } else {
-                // Fallback to original image if heatmap generation failed
-                resultImg.src = URL.createObjectURL(selectedFile);
-            }
-            
-            document.getElementById('result-section').style.display = 'block';
+            const results = await response.json();
+            displayResults(results);
 
         } catch (error) {
             console.error(error);
@@ -258,7 +257,61 @@
             document.getElementById('loader').style.display = 'none';
             document.getElementById('loading-text').style.display = 'none';
             document.getElementById('analyze-btn').disabled = false;
+            document.getElementById('reset-btn-container').style.display = 'block';
         }
+    }
+
+    function displayResults(results) {
+        const grid = document.getElementById('result-grid');
+        
+        results.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'img-card';
+
+            // Determine Label Style
+            let labelClass = "label-safe";
+            let labelIcon = "✅";
+            if (item.label && item.label.includes("TUMOR")) {
+                labelClass = "label-danger";
+                labelIcon = "⚠️";
+            }
+            if (item.error) {
+                labelClass = "confidence";
+                labelIcon = "❌";
+                item.label = "Error Processing";
+            }
+
+            // Image Sources
+            let heatmapSrc = "https://via.placeholder.com/150?text=No+Heatmap";
+            if (item.heatmap_image) {
+                heatmapSrc = "data:image/jpeg;base64," + item.heatmap_image;
+            }
+            
+            let originalSrc = "https://via.placeholder.com/150?text=Error";
+            if (item.original_image) {
+                originalSrc = "data:image/jpeg;base64," + item.original_image;
+            }
+
+            card.innerHTML = `
+                <h4>${item.filename}</h4>
+                
+                <div class="images-container">
+                    <div class="img-wrapper">
+                        <span>Original</span>
+                        <img src="${originalSrc}" alt="Original">
+                    </div>
+                    <div class="img-wrapper">
+                        <span>AI Heatmap</span>
+                        <img src="${heatmapSrc}" alt="Heatmap">
+                    </div>
+                </div>
+
+                <div class="${labelClass}">${labelIcon} ${item.label}</div>
+                ${item.error ? `<div class="confidence" style="color:red; font-size:0.8em">${item.error}</div>` : ''}
+            `;
+            
+            grid.appendChild(card);
+        });
     }
 </script>
 

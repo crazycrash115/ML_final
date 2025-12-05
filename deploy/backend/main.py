@@ -8,13 +8,14 @@ from PIL import Image
 from io import BytesIO
 import torchvision.transforms as transforms
 import os
+from typing import List
 
 # --- IMPORT YOUR SPECIFIC MODELS ---
 from model_brain import BrainTumorConvNet, BrainTumorDeepConvNet
 
 app = FastAPI(title="NeuroScan AI API", description="Brain Tumor Detection API with Grad-CAM")
 
-# Enable CORS for frontend communication
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,11 +45,11 @@ def load_models():
             baseline.to(DEVICE)
             baseline.eval()
             loaded_models["baseline"] = baseline
-            print("✅ Baseline (BrainTumorConvNet) loaded.")
+            print("Baseline (BrainTumorConvNet) loaded.")
         else:
-            print(f"⚠️ File not found: {path}")
+            print(f"File not found: {path}")
     except Exception as e:
-        print(f"❌ Failed to load Baseline: {e}")
+        print(f"Failed to load Baseline: {e}")
 
     # 2. Load Deep Model
     try:
@@ -61,13 +62,12 @@ def load_models():
             loaded_models["deep"] = deep
             print("✅ Deep (BrainTumorDeepConvNet) loaded.")
         else:
-            print(f"⚠️ File not found: {path}")
+            print(f"File not found: {path}")
     except Exception as e:
-        print(f"❌ Failed to load Deep Model: {e}")
+        print(f"Failed to load Deep Model: {e}")
 
 # --- HELPER: Process Image ---
 def transform_image(image_bytes):
-    # Matches your training: Resize(128, 128) -> Tensor -> Normalize
     my_transforms = transforms.Compose([
         transforms.Resize((128, 128)),
         transforms.ToTensor(),
@@ -82,12 +82,9 @@ def get_gradcam_overlay(model, model_type, input_tensor, original_image):
     from pytorch_grad_cam import GradCAM
     from pytorch_grad_cam.utils.image import show_cam_on_image
 
-    # TARGET SELECTION based on architecture in model_brain.py
     if model_type == "deep":
-        # BrainTumorDeepConvNet: Last Conv is at index 6
         target_layers = [model.model[6]]
     else:
-        # BrainTumorConvNet: Last Conv is at index 7
         target_layers = [model.model[7]]
 
     try:
@@ -105,46 +102,60 @@ def get_gradcam_overlay(model, model_type, input_tensor, original_image):
         print(f"Grad-CAM Error: {e}")
         return None
 
+# --- UPDATED ENDPOINT FOR MULTIPLE FILES ---
 @app.post("/predict")
 async def predict(
-    file: UploadFile = File(...), 
-    model_name: str = Form("deep") # Default to deep
+    files: List[UploadFile] = File(...), 
+    model_name: str = Form("deep")
 ):
     if model_name not in loaded_models:
-        raise HTTPException(status_code=400, detail=f"Model '{model_name}' not available. Check server logs.")
+        raise HTTPException(status_code=400, detail=f"Model '{model_name}' not available.")
     
     selected_model = loaded_models[model_name]
+    results = []
 
-    try:
-        # 1. Read Image
-        image_bytes = await file.read()
-        tensor, original_pil = transform_image(image_bytes)
-        
-        # 2. Get Prediction
-        with torch.no_grad():
-            outputs = selected_model(tensor)
-            probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
-            confidence, predicted_class = torch.max(probabilities, 0)
+    for file in files:
+        try:
+            # 1. Read Image
+            image_bytes = await file.read()
+            tensor, original_pil = transform_image(image_bytes)
             
-        class_index = predicted_class.item()
-        conf_score = confidence.item() * 100
-        label = "TUMOR DETECTED" if class_index == 1 else "NO TUMOR"
-        
-        # 3. Get Visualization
-        heatmap_b64 = get_gradcam_overlay(selected_model, model_name, tensor, original_pil)
-        
-        return JSONResponse(content={
-            "label": label,
-            "confidence": f"{conf_score:.2f}%",
-            "heatmap_image": heatmap_b64,
-            "model_used": model_name
-        })
-        
-    except Exception as e:
-        print(f"Prediction Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+            # 2. Get Prediction
+            with torch.no_grad():
+                outputs = selected_model(tensor)
+                probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
+                confidence, predicted_class = torch.max(probabilities, 0)
+            
+            class_index = predicted_class.item()
+            conf_score = confidence.item() * 100
+            label = "TUMOR DETECTED" if class_index == 1 else "NO TUMOR"
+            
+            # 3. Get Visualization (Heatmap)
+            heatmap_b64 = get_gradcam_overlay(selected_model, model_name, tensor, original_pil)
+            
+            # 4. Get Original Image (Resized for display consistency)
+            resized_orig = original_pil.resize((128, 128))
+            buff = BytesIO()
+            resized_orig.save(buff, format="JPEG")
+            original_b64 = base64.b64encode(buff.getvalue()).decode("utf-8")
+            
+            results.append({
+                "filename": file.filename,
+                "label": label,
+                "heatmap_image": heatmap_b64,
+                "original_image": original_b64, # Sending this back now
+                "model_used": model_name
+            })
+            
+        except Exception as e:
+            print(f"Error processing {file.filename}: {e}")
+            results.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+    return JSONResponse(content=results)
 
 if __name__ == "__main__":
     import uvicorn
-    # Start server
     uvicorn.run(app, host="127.0.0.1", port=8000)
