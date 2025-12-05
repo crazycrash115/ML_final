@@ -60,7 +60,7 @@ def load_models():
             deep.to(DEVICE)
             deep.eval()
             loaded_models["deep"] = deep
-            print("✅ Deep (BrainTumorDeepConvNet) loaded.")
+            print("Deep (BrainTumorDeepConvNet) loaded.")
         else:
             print(f"File not found: {path}")
     except Exception as e:
