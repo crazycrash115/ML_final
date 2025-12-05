@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroScan AI - Tumor Detection</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f2f5; 
+            text-align: center; 
+            padding: 50px; 
+            color: #333;
+        }
+        .container { 
+            background: white; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        p { color: #7f8c8d; margin-bottom: 30px; }
+        
+        /* Upload Area */
+        .upload-box { 
+            border: 3px dashed #3498db; 
+            background-color: #f8fbfe;
+            padding: 50px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            margin-bottom: 30px; 
+            transition: all 0.3s ease; 
+        }
+        .upload-box:hover { 
+            background-color: #eaf6ff; 
+            border-color: #2980b9;
+        }
+        .upload-icon { font-size: 3em; margin-bottom: 10px; display: block; }
+        
+        /* Controls */
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        select {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #bdc3c7;
+            font-size: 1em;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        /* Results Area */
+        #result-section { display: none; margin-top: 30px; border-top: 1px solid #eee; padding-top: 30px; }
+        
+        /* Single Image Card Style */
+        .img-card { 
+            background: #fff; 
+            padding: 20px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); 
+            text-align: center;
+            display: inline-block; /* Centers the card */
+            margin-top: 20px;
+        }
+        .img-card h4 { margin-top: 0; color: #555; }
+        
+        img { 
+            width: 300px;  /* Slightly larger since it's the only image */
+            height: 300px; 
+            object-fit: cover; 
+            border-radius: 8px; 
+            border: 1px solid #ddd;
+            display: block;
+            margin: 0 auto;
+        } 
+        
+        /* Labels */
+        .label-danger { color: #e74c3c; font-weight: 800; font-size: 2em; letter-spacing: 1px;}
+        .label-safe { color: #27ae60; font-weight: 800; font-size: 2em; letter-spacing: 1px;}
+        .confidence { font-size: 1.2em; color: #555; font-weight: 500;}
+        
+        /* Buttons */
+        button { 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            padding: 12px 30px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        /* Loading */
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧠 NeuroScan AI</h1>
+    <p>Upload a brain MRI scan to detect potential anomalies using Deep Learning.</p>
+
+    <!-- Upload Form -->
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+        <span class="upload-icon">📂</span>
+        <strong>Click to Upload MRI Scan</strong>
+        <div style="font-size: 0.9em; margin-top: 5px; color: #999;">Supports JPG, PNG</div>
+        <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImage(event)">
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-section" style="display:none;">
+        <h3>Selected Scan</h3>
+        <img id="preview-img" src="" alt="Preview">
+        
+        <!-- Model Selection Controls -->
+        <div class="controls">
+            <select id="model-select">
+                <option value="deep">🧠 Deep ConvNet (Recommended)</option>
+                <option value="baseline">📉 Baseline ConvNet (Standard)</option>
+            </select>
+            <button id="analyze-btn" onclick="analyzeScan()">🔍 Run Analysis</button>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loader" class="loader"></div>
+    <p id="loading-text" style="display:none;">Analyzing neural patterns...</p>
+
+    <!-- Results -->
+    <div id="result-section">
+        <h2 id="prediction-text"></h2>
+        <p class="confidence">AI Confidence: <span id="confidence-text"></span></p>
+        
+        <!-- Single Image Display -->
+        <div class="img-card">
+            <h4>Analysis Result</h4>
+            
+            <div style="position: relative; width: 300px; height: 300px; margin: 0 auto;">
+                <img id="res-image" src="" onerror="onImgError(this)">
+            </div>
+
+            <div style="font-size: 0.8em; color: #888; margin-top: 10px;">
+                Red areas indicate high AI attention
+            </div>
+        </div>
+        
+        <br><br>
+        <button onclick="location.reload()" style="background-color: #7f8c8d;">Analyze New Image</button>
+    </div>
+</div>
+
+<script>
+    let selectedFile = null;
+    const API_URL = "http://127.0.0.1:8000/predict";
+
+    // If image fails, try to revert to original, or show error
+    function onImgError(img) {
+        // If the heatmap fails to load, fallback to the original selected file
+        if (selectedFile) {
+            img.src = URL.createObjectURL(selectedFile);
+            img.onerror = null; // Prevent infinite loop if original also fails
+        }
+    }
+
+    function previewImage(event) {
+        const file = event.target.files[0];
+        if (file) {
+            selectedFile = file;
+            const src = URL.createObjectURL(file);
+            document.getElementById('preview-img').src = src;
+            document.getElementById('preview-section').style.display = 'block';
+            document.getElementById('result-section').style.display = 'none';
+        }
+    }
+
+    async function analyzeScan() {
+        if (!selectedFile) return;
+
+        // UI Reset
+        document.getElementById('analyze-btn').disabled = true;
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('result-section').style.display = 'none';
+
+        // Prepare Data
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        
+        const modelType = document.getElementById("model-select").value;
+        formData.append("model_name", modelType);
+
+        try {
+            // Call Backend
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Server Error: ${errText}`);
+            }
+            
+            const data = await response.json();
+
+            // Display Results
+            const labelElem = document.getElementById('prediction-text');
+            labelElem.innerText = data.label;
+            
+            if (data.label.includes("TUMOR")) {
+                labelElem.className = "label-danger";
+                labelElem.innerText = "⚠️ " + data.label;
+            } else {
+                labelElem.className = "label-safe";
+                labelElem.innerText = "✅ " + data.label;
+            }
+            
+            document.getElementById('confidence-text').innerText = data.confidence;
+            
+            // Logic: Show Heatmap if available, otherwise show Original
+            const resultImg = document.getElementById('res-image');
+            
+            if (data.heatmap_image) {
+                resultImg.src = "data:image/jpeg;base64," + data.heatmap_image;
+            } else {
+                // Fallback to original image if heatmap generation failed
+                resultImg.src = URL.createObjectURL(selectedFile);
+            }
+            
+            document.getElementById('result-section').style.display = 'block';
+
+        } catch (error) {
+            console.error(error);
+            alert("Connection Error: " + error.message);
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
