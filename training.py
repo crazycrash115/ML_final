@@ -551,7 +551,7 @@ Dropout prevented the deeper network from relying too heavily on any single feat
 
 ## Impact of small dataset
 
-With such a small dataset, both models risk overfitting, but the effect is stronger on architectures without sufficient regularization. The deeper model benefits more because the additional layers can extract subtle tumor morphology and texture cues that appear consistently across patients, and dropout discourages memorizing idiosyncrasies of individual samples. This combination yields higher and more stable validation accuracy across the 10 runs, suggesting that the learned features capture genuine medical imaging structure rather than noise.
+With such a small dataset, both models risk overfitting, but the effect is stronger on architectures without sufficient regularization. The deeper model benefits more because the additional layers can extract subtle tumor morphology and texture cues that appear consistently across patients, and dropout discourages memorizing idiosyncrasies of individual samples. This combination yields higher and more stable validation accuracy across the 5 runs, suggesting that the learned features capture genuine medical imaging structure rather than noise.
 
 ## Key Observations
 

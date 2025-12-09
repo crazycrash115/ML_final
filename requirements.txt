@@ -7,3 +7,7 @@ grad-cam
 pillow
 numpy
 lightning
+torchaudio 
+pytorch-lightning 
+pandas 
+matplotlib
