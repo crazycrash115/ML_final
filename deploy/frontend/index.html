@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroScan AI - Batch Analysis</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f2f5; 
+            text-align: center; 
+            padding: 40px; 
+            color: #333;
+        }
+        .container { 
+            background: white; 
+            max-width: 1200px;
+            margin: 0 auto; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        p { color: #7f8c8d; margin-bottom: 30px; }
+        
+        /* Upload Area */
+        .upload-box { 
+            border: 3px dashed #3498db; 
+            background-color: #f8fbfe;
+            padding: 40px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            margin-bottom: 30px; 
+            transition: all 0.3s ease; 
+        }
+        .upload-box:hover { 
+            background-color: #eaf6ff; 
+            border-color: #2980b9;
+        }
+        .upload-icon { font-size: 3em; margin-bottom: 10px; display: block; }
+        
+        /* Controls */
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        select {
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #bdc3c7;
+            font-size: 1em;
+            background-color: white;
+            cursor: pointer;
+        }
+
+        /* Results Grid */
+        #result-grid { 
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; 
+            gap: 20px; 
+            margin-top: 30px; 
+        }
+        
+        /* Individual Result Card - Wider to fit 2 images */
+        .img-card { 
+            background: #fff; 
+            padding: 15px; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            text-align: center;
+            width: 360px; /* Increased width */
+            border: 1px solid #eee;
+            transition: transform 0.2s;
+        }
+        .img-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+        
+        .img-card h4 { 
+            margin: 10px 0 5px 0; 
+            color: #555; 
+            font-size: 0.9em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        /* Image Container for Side-by-Side */
+        .images-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        
+        .img-wrapper {
+            flex: 1;
+        }
+        .img-wrapper span {
+            display: block;
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        img { 
+            width: 100%; 
+            height: 160px; /* Smaller height for grid */
+            object-fit: cover; 
+            border-radius: 8px; 
+            border: 1px solid #ddd;
+            display: block;
+        } 
+        
+        /* Labels */
+        .label-danger { color: #e74c3c; font-weight: 800; font-size: 1.2em; margin: 10px 0 5px 0;}
+        .label-safe { color: #27ae60; font-weight: 800; font-size: 1.2em; margin: 10px 0 5px 0;}
+        .confidence { font-size: 0.9em; color: #7f8c8d; font-weight: 500;}
+        
+        /* Buttons */
+        button { 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            padding: 12px 30px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 1.1em; 
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        /* Loading */
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* File Count Badge */
+        .badge {
+            background-color: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-left: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>NeuroScan AI</h1>
+    <p>Batch Processing Mode: Upload multiple MRI scans at once.</p>
+
+    <!-- Upload Form -->
+    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+        <span class="upload-icon">📂</span>
+        <strong>Click to Upload Scans</strong>
+        <div style="font-size: 0.9em; margin-top: 5px; color: #999;">Select multiple files (JPG, PNG)</div>
+        <input type="file" id="fileInput" hidden multiple accept="image/*" onchange="handleFileSelect(event)">
+    </div>
+
+    <!-- Controls Area -->
+    <div id="control-section" style="display:none;">
+        <div style="margin-bottom: 20px;">
+            <span style="font-size: 1.2em;">Selected Files:</span>
+            <span id="file-count" class="badge" style="display:inline-block;">0</span>
+        </div>
+        
+        <div class="controls">
+            <select id="model-select">
+                <option value="deep">Deep ConvNet (Recommended)</option>
+                <option value="baseline">Baseline ConvNet (Standard)</option>
+            </select>
+            <button id="analyze-btn" onclick="analyzeBatch()">Analyze Batch</button>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loader" class="loader"></div>
+    <p id="loading-text" style="display:none;">Processing batch... please wait.</p>
+
+    <!-- Results Grid -->
+    <div id="result-grid"></div>
+    
+    <div id="reset-btn-container" style="display:none; margin-top:40px;">
+        <button onclick="location.reload()" style="background-color: #7f8c8d;">Start New Batch</button>
+    </div>
+</div>
+
+<script>
+    let selectedFiles = [];
+    const API_URL = "http://127.0.0.1:8000/predict";
+
+    function handleFileSelect(event) {
+        const files = event.target.files;
+        if (files.length > 0) {
+            selectedFiles = files;
+            document.getElementById('file-count').innerText = files.length + " scans";
+            document.getElementById('control-section').style.display = 'block';
+            document.getElementById('result-grid').innerHTML = ""; // Clear previous
+        }
+    }
+
+    async function analyzeBatch() {
+        if (selectedFiles.length === 0) return;
+
+        // UI Updates
+        document.getElementById('analyze-btn').disabled = true;
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('result-grid').innerHTML = ""; // Clear grid
+
+        // Prepare Data
+        const formData = new FormData();
+        
+        for (let i = 0; i < selectedFiles.length; i++) {
+            formData.append("files", selectedFiles[i]);
+        }
+        
+        const modelType = document.getElementById("model-select").value;
+        formData.append("model_name", modelType);
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Server Error: ${errText}`);
+            }
+            
+            const results = await response.json();
+            displayResults(results);
+
+        } catch (error) {
+            console.error(error);
+            alert("Connection Error: " + error.message);
+        } finally {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+            document.getElementById('reset-btn-container').style.display = 'block';
+        }
+    }
+
+    function displayResults(results) {
+        const grid = document.getElementById('result-grid');
+        
+        results.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'img-card';
+
+            // Determine Label Style
+            let labelClass = "label-safe";
+            let labelIcon = "✅";
+            if (item.label && item.label.includes("TUMOR")) {
+                labelClass = "label-danger";
+                labelIcon = "⚠️";
+            }
+            if (item.error) {
+                labelClass = "confidence";
+                labelIcon = "❌";
+                item.label = "Error Processing";
+            }
+
+            // Image Sources
+            let heatmapSrc = "https://via.placeholder.com/150?text=No+Heatmap";
+            if (item.heatmap_image) {
+                heatmapSrc = "data:image/jpeg;base64," + item.heatmap_image;
+            }
+            
+            let originalSrc = "https://via.placeholder.com/150?text=Error";
+            if (item.original_image) {
+                originalSrc = "data:image/jpeg;base64," + item.original_image;
+            }
+
+            card.innerHTML = `
+                <h4>${item.filename}</h4>
+                
+                <div class="images-container">
+                    <div class="img-wrapper">
+                        <span>Original</span>
+                        <img src="${originalSrc}" alt="Original">
+                    </div>
+                    <div class="img-wrapper">
+                        <span>AI Heatmap</span>
+                        <img src="${heatmapSrc}" alt="Heatmap">
+                    </div>
+                </div>
+
+                <div class="${labelClass}">${labelIcon} ${item.label}</div>
+                ${item.error ? `<div class="confidence" style="color:red; font-size:0.8em">${item.error}</div>` : ''}
+            `;
+            
+            grid.appendChild(card);
+        });
+    }
+</script>
+
+</body>
+</html>
