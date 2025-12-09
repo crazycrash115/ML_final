@@ -49,10 +49,10 @@ import torchvision.transforms as T
 from lightning.pytorch import Trainer, seed_everything
 from lightning.pytorch.loggers import CSVLogger
 import shutil
-from google.colab import drive
-drive.mount('/content/drive/', force_remount=True)
-import sys
-sys.path.append('/content/drive/MyDrive/ML_FILE')
+# from google.colab import drive
+# drive.mount('/content/drive/', force_remount=True)
+# import sys
+# sys.path.append('/content/drive/MyDrive/ML_FILE')
 import glob
 import utils          # or: from utils import some_function
 from model_brain import BrainTumorConvNet, BrainTumorDeepConvNet
