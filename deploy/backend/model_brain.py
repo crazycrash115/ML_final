@@ -59,10 +59,12 @@ class BrainTumorConvNet(BaseModel):
             nn.MaxPool2d(2),      # 16 x 64 x 64
 
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),      # 32 x 32 x 32
 
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),      # 64 x 16 x 16
 
@@ -81,19 +83,21 @@ class BrainTumorDeepConvNet(BaseModel):
     def build_model(self) -> nn.Module:
         return nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2),          # 32 x 64 x 64
 
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),          # 64 x 32 x 32
 
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2),          # 128 x 16 x 16
 
             nn.Flatten(),
-            nn.Dropout(0.5),
             nn.Linear(128 * 16 * 16, 256),
             nn.ReLU(),
             nn.Dropout(0.5),

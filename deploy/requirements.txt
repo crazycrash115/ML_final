@@ -6,3 +6,4 @@ torchvision
 grad-cam
 pillow
 numpy
+lightning
