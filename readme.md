@@ -64,12 +64,4 @@ python main.py
   - Filename  
   - Original MRI image  
   - AI heatmap (Grad-CAM)  
-  - Prediction label and confidence score.
-
-## Backend Details
-
-The backend is implemented with FastAPI and PyTorch.
-
-### API
-
-- **Endpoint**:  
+  - Prediction label
